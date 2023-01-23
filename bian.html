@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<!-- import CSS -->
+		<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+
+	</head>
+	<body>
+		<div id="app">
+			<div class="header">
+				<div class="logo">币安合约实时榜单</div>
+
+				<div class="date">{{format_date}}</div>
+			</div>
+			<div class="content">
+				<el-form label-width="75px" :inline="true" class="demo-form-inline">
+					<el-form-item label="时间间隔:">
+						<el-radio-group v-model="interval">
+							<el-radio-button v-for="item in interval_list" :label="item.value">{{item.lable}}
+							</el-radio-button>
+						</el-radio-group>
+					</el-form-item>
+
+				</el-form>
+				<el-form :inline="true" class="demo-form-inline">
+					<el-form-item label="币种:" label-width="60px">
+						<el-select v-model="check_symbol" clearable filterable placeholder="请选择">
+							<el-option v-for="item in symbol_list" :key="item" :label="item" :value="item">
+							</el-option>
+						</el-select>
+					</el-form-item>
+					<el-form-item label="数据量:" label-width="60px">
+						<el-input style="width:50px" v-model="max_num"></el-input>
+					</el-form-item>
+					<el-form-item>{{start_time}} - {{end_time}}</el-form-item>
+					<el-form-item label="占比阈值:" label-width="80px">
+						<el-input style="width:60px" v-model="max_num2"></el-input>
+					</el-form-item>
+					<el-form-item label="报警阈值:" label-width="80px">
+						<el-input style="width:50px" v-model="alarm_num"></el-input>
+					</el-form-item>
+					<el-form-item :label="audio.volume" label-width="80px">
+					</el-form-item>
+				</el-form>
+				<el-form :inline="true" class="demo-form-inline">
+					<el-form-item id="main" style="width: 480px;height:850px;"></el-form-item>
+					<el-form-item id="main2" style="width: 480px;height:850px;"></el-form-item>
+					<el-form-item>
+						<el-table :data="offer_up_list" stripe border style="width: 100%" @row-click="offer_click"
+							align="center" max-height="800px" size="small" highlight-current-row
+							:row-class-name="tableRowClassName" :default-sort="{prop: 'value', order: 'descending'}">
+							<template slot-scope="scope">
+								<el-table-column prop="symbol" :label="'突破新高'+offer_up_avg" width="80">
+								</el-table-column>
+								<el-table-column prop="value" label="占比" width="70" sortable :sort-method="sort_number"
+									:sort-orders="['ascending','descending']">
+								</el-table-column>
+							</template>
+						</el-table>
+					</el-form-item>
+					<el-form-item>
+						<el-table :data="offer_down_list" stripe border style="width: 100%" @row-click="offer_click"
+							align="center" max-height="800px" size="small" highlight-current-row
+							:row-class-name="tableRowClassName" :default-sort="{prop: 'value', order: 'descending'}">
+							<el-table-column prop="symbol" :label="'突破新低'+'\n'+offer_down_avg" width="80">
+							</el-table-column>
+							<el-table-column prop="value" label="占比" width="70" sortable :sort-method="sort_number"
+								:sort-orders="['ascending','descending']">
+							</el-table-column>
+						</el-table>
+					</el-form-item>
+					<el-form-item>
+						<el-table :data="max_min_list" stripe border style="width: 100%" @row-click="offer_click"
+							align="center" max-height="800px" size="small" highlight-current-row
+							:row-class-name="tableRowClassName" :default-sort="{prop: 'value', order: 'descending'}">
+							<el-table-column prop="symbol" :label="'上影线 '+max_min_avg" width="80">
+							</el-table-column>
+							<el-table-column prop="value" label="占比" width="70" sortable :sort-method="sort_number"
+								:sort-orders="['ascending','descending']">
+							</el-table-column>
+						</el-table>
+					</el-form-item>
+					<el-form-item>
+						<el-table :data="min_max_list" stripe border style="width: 100%" @row-click="offer_click"
+							align="center" max-height="800px" size="small" highlight-current-row
+							:row-class-name="tableRowClassName" :default-sort="{prop: 'value', order: 'descending'}">
+							<el-table-column prop="symbol" :label="'下影线 '+min_max_avg" width="80">
+							</el-table-column>
+							<el-table-column prop="value" label="占比" width="70" sortable :sort-method="sort_number"
+								:sort-orders="['ascending','descending']">
+							</el-table-column>
+						</el-table>
+					</el-form-item>
+					<el-form-item>
+						<el-table :data="max_max_list" stripe border style="width: 100%" @row-click="offer_click"
+							align="center" max-height="800px" size="small" highlight-current-row
+							:row-class-name="tableRowClassName" :default-sort="{prop: 'value', order: 'descending'}">
+							<el-table-column prop="symbol" label="振幅" width="80">
+							</el-table-column>
+							<el-table-column prop="value" label="占比" width="70" sortable :sort-method="sort_number"
+								:sort-orders="['ascending','descending']">
+							</el-table-column>
+						</el-table>
+					</el-form-item>
+				</el-form>
+			</div>
+		</div>
+	</body>
+	<!-- import Vue before Element -->
+	<!-- <script src="https://unpkg.com/vue/dist/vue.js"></script> -->
+	<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+	<!-- import JavaScript -->
+	<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+	<!-- import Axios -->
+	<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+	<!-- import v-charts -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.2.2/dist/echarts.min.js"></script>
+
+	<script>
+		function r(e, t) {
+			for (var r = 0, n = t - (e + "").length; r < n; r++) e = "0" + e;
+			return e + ""
+		};
+
+		function formatDate(e, t) {
+			return t.replace(/yyyy|YYYY/, e.getFullYear()).replace(/yy|YY/, r(e
+					.getFullYear() % 100, 2)).replace(/mm|MM/, r(e.getMonth() + 1, 2))
+				.replace(/m|M/g, e.getMonth() + 1).replace(/dd|DD/, r(e.getDate(), 2))
+				.replace(/d|D/g, e.getDate()).replace(/hh|HH/, r(e.getHours(), 2))
+				.replace(/h|H/g, e.getHours()).replace(/ii|II/, r(e.getMinutes(), 2))
+				.replace(/i|I/g, e.getMinutes()).replace(/ss|SS/, r(e.getSeconds(), 2))
+				.replace(/s|S/g, e.getSeconds()).replace(/w/g, e.getDay()).replace(/W/g,
+					["日", "一", "二", "三", "四", "五", "六"][e.getDay()])
+		};
+		var app = new Vue({
+			el: '#app',
+			data: {
+				format_date: "",
+				symbol_list: [],
+				check_symbol: "",
+				interval: "1h*h",
+				max_num: 70,
+				max_num2: 98.5,
+				alarm_num: 20,
+				interval_list: [{
+					"lable": "1分",
+					"value": "1m"
+				}, {
+					"lable": "3分",
+					"value": "1m*4"
+				}, {
+					"lable": "5分",
+					"value": "1m*6"
+				}, {
+					"lable": "15分",
+					"value": "1m*16"
+				}, {
+					"lable": "30分",
+					"value": "1m*31"
+				}, {
+					"lable": "1小时",
+					"value": "1h"
+				}, {
+					"lable": "2小时",
+					"value": "1h*2"
+				}, {
+					"lable": "4小时",
+					"value": "1h*5"
+				}, {
+					"lable": "6小时",
+					"value": "1h*7"
+				}, {
+					"lable": "8小时",
+					"value": "1h*9"
+				}, {
+					"lable": "12小时",
+					"value": "1h*12"
+				}, {
+					"lable": "日线_0",
+					"value": "1h*h"
+				}, {
+					"lable": "日线_8",
+					"value": "1d"
+				}, {
+					"lable": "3日",
+					"value": "1d*3"
+				}, {
+					"lable": "周线",
+					"value": "1d*7"
+				}, {
+					"lable": "15日",
+					"value": "1d*15"
+				}, {
+					"lable": "月线",
+					"value": "1M"
+				}, {
+					"lable": "连续月线",
+					"value": "1d*30"
+				}, {
+					"lable": "3月",
+					"value": "1M*3"
+				}, {
+					"lable": "6月",
+					"value": "1M*6"
+				}, {
+					"lable": "年线",
+					"value": "1M*12M"
+				}, {
+					"lable": "2年",
+					"value": "1M*24M"
+				}, {
+					"lable": "3年",
+					"value": "1M*36M"
+				}],
+				series_data_up: [],
+				series_data_down: [],
+				series_data_max: [],
+				series_data_min: [],
+				offer_up: {},
+				offer_down: {},
+				offer_up_list: [],
+				offer_up_avg: '',
+				offer_down_avg: '',
+				offer_down_list: [],
+				offer_green_list: [],
+				offer_red_list: [],
+				max_max: {},
+				max_max_list: [],
+				max_min: {},
+				max_min_avg: '',
+				max_min_list: [],
+				min_max: {},
+				min_max_avg: '',
+				min_max_list: [],
+				show_charts: false,
+				myChart: "",
+				myChart2: "",
+				up_name: 0,
+				down_name: 0,
+				start_time: "",
+				end_time: "",
+				temp: "",
+				audio: ""
+			},
+			mounted() {
+				this.get_symbol();
+				setInterval(this.get_symbol, 60000);
+				setInterval(this.get_data, 1000 * 8);
+				setInterval(this.init_chart, 1000 * 3);
+				setInterval(this.init_offer, 1000 * 3);
+			},
+			watch: {
+				interval: function(newVal, oldVal) {
+					this.series_data_up = [];
+					this.series_data_down = [];
+					this.series_data_max = [];
+					this.series_data_min = [];
+					this.offer_up = [];
+					this.offer_down = [];
+					this.max_max_list = [];
+					this.max_min_list = [];
+					this.min_max_list = [];
+					this.offer_up_list = [];
+					this.offer_down_list = [];
+					this.init_offer();
+					this.get_data();
+				},
+				max_num: function(newVal, oldVal) {
+					this.myChart.clear();
+					this.myChart2.clear();
+					this.init_chart();
+				},
+				max_num2: function(newVal, oldVal) {
+					this.init_chart();
+					this.init_offer();
+				},
+				check_symbol: function(newVal, oldVal) {
+					this.init_chart();
+				},
+			},
+			methods: {
+				tableRowClassName({
+					row
+				}) {
+					if (row.symbol == this.check_symbol) {
+						return "table_color_orange";
+					} else if (this.offer_green_list.indexOf(row.symbol) !== -1) {
+						return "table_color_green";
+					} else if (this.offer_red_list.indexOf(row.symbol) !== -1) {
+						return "table_color_red";
+					} else if (row.symbol == "ETH" || row.symbol == "BTC") {
+						return "table_color_BTC";
+					} else {
+						return "";
+					}
+				},
+				sort_number(a, b) {
+					return Number(a.value) > Number(b.value) ? 1 : -1;
+				},
+				offer_click(row, column, cell, event) {
+					this.check_symbol = row.symbol;
+				},
+				get_avg(nums) {
+					if (nums.length == 0) {
+						return 0.0;
+					};
+					return (nums.reduce((a, b) => Number(a) + Number(b)) / nums.length).toFixed(2);
+				},
+				init_offer() {
+					var offer_up_list = [];
+					this.offer_green_list = [];
+					var avg_list = [];
+					for (symbol in this.offer_up) {
+						if (this.offer_up[symbol] == undefined) {
+							continue;
+						}
+						offer_up_list.push({
+							"symbol": symbol,
+							"value": this.offer_up[symbol]
+						});
+						avg_list.push(this.offer_up[symbol]);
+						if (Number(this.offer_up[symbol]) > Number(this.max_num2)) {
+							this.offer_green_list.push(symbol);
+						}
+					}
+					this.offer_up_avg = this.get_avg(avg_list);
+					this.offer_up_list = offer_up_list;
+
+					var offer_down_list = [];
+					this.offer_red_list = [];
+					var avg_list = [];
+					for (symbol in this.offer_down) {
+						if (this.offer_down[symbol] == undefined) {
+							continue;
+						}
+						offer_down_list.push({
+							"symbol": symbol,
+							"value": this.offer_down[symbol]
+						});
+						avg_list.push(this.offer_down[symbol]);
+						if (Number(this.offer_down[symbol]) > Number(this.max_num2)) {
+							this.offer_red_list.push(symbol);
+						}
+					}
+					this.offer_down_avg = this.get_avg(avg_list);
+					this.offer_down_list = offer_down_list;
+
+					var max_min_list = [];
+					var avg_list = [];
+					for (symbol in this.max_min) {
+						max_min_list.push({
+							"symbol": symbol,
+							"value": this.max_min[symbol]
+						});
+						avg_list.push(this.max_min[symbol]);
+					}
+					this.max_min_avg = this.get_avg(avg_list);
+					this.max_min_list = max_min_list;
+
+					var avg_list = [];
+					var min_max_list = [];
+					for (symbol in this.min_max) {
+						min_max_list.push({
+							"symbol": symbol,
+							"value": this.min_max[symbol]
+						});
+						avg_list.push(this.min_max[symbol]);
+					}
+					this.min_max_avg = this.get_avg(avg_list);
+					this.min_max_list = min_max_list;
+
+					var max_max_list = [];
+					for (symbol in this.max_max) {
+						max_max_list.push({
+							"symbol": symbol,
+							"value": this.max_max[symbol]
+						});
+					}
+					this.max_max_list = max_max_list;
+					if (this.audio == "") {
+						this.audio = new Audio();
+						this.audio.src = "https://onlinealarmkur.com/dist/mp3/buzzer.mp3";
+						this.audio.volume = 0.1;
+						this.audio.loop = true;
+					}
+					if (this.offer_green_list.length >= this.alarm_num * 0.75 || this.offer_red_list.length >= this
+						.alarm_num * 0.75) {
+						var length = this.offer_green_list.length >= this.alarm_num * 0.75 ? this.offer_green_list
+							.length : this.offer_red_list
+							.length;
+						this.audio.volume = 0.1 + (length - this.alarm_num) * 0.01;
+						this.audio.play();
+					} else {
+						this.audio.volume = 0.1;
+						this.audio.pause();
+					}
+					this.init_chart();
+				},
+				get_symbol() {
+					axios.get("https://fapi.binance.com/fapi/v1/ticker/price").then(res => {
+						ret = res.data
+						// console.log(ret);
+						var symbol_list = []
+						for (i = 0, len = ret.length; i < len; i++) {
+							symbol = ret[i]["symbol"]
+							price = ret[i]["price"]
+							if (symbol.match("USDT$")) {
+								symbol_list.push(symbol.replace("USDT", ""));
+							}
+						}
+						if (symbol_list !== []) {
+							this.symbol_list = symbol_list.sort();
+						}
+						this.get_data();
+					});
+				},
+				get_data() {
+					var interval = this.interval;
+					var limit = 1;
+					if (this.interval.indexOf("*") !== -1) {
+						interval_split = this.interval.split("*");
+						interval = interval_split[0];
+						limit = interval_split[1];
+						if (limit.indexOf("h") !== -1) {
+							limit = Number(limit.replace("h", "")) + Number(formatDate(new Date(), 'HH')) + 1;
+						} else if (limit.indexOf("d") !== -1) {
+							limit = Number(limit.replace("d", "")) + Number(formatDate(new Date(), 'DD')) + 1;
+						} else if (limit.indexOf("m") !== -1) {
+							limit = Number(limit.replace("m", "")) + Number(formatDate(new Date(), 'ii')) + 1;
+						} else if (limit.indexOf("M") !== -1) {
+							limit = Number(limit.replace("M", "")) + Number(formatDate(new Date(), 'MM')) + 1;
+						}
+					}
+					for (index in this.symbol_list) {
+						this.get_one(this.symbol_list[index], interval, limit);
+					}
+					if (this.series_data_up !== [] && this.series_data_down !== []) {
+						this.format_date = formatDate(new Date(), 'YYYY-MM-DD HH:ii:ss');
+					} else {
+						this.format_date = "网络异常，请使用科学上网！"
+					}
+					this.init_chart();
+				},
+				get_one(symbol, interval = this.interval, limit = 1) {
+					console.log("get_data " + symbol + " " + interval + " ");
+					axios.get("https://fapi.binance.com/fapi/v1/klines?symbol=" + symbol +
+						"USDT&interval=" + interval + "&limit=" + limit).then(res => {
+						ret = res.data
+						if (ret.length === 0) {
+							return;
+						}
+						max_len = ret.length - 1;
+						var index = this.symbol_list.indexOf(symbol);
+						if (index === -1) {
+							return;
+						}
+						this.start_time = formatDate(new Date(ret[0][0]), 'YYYY-MM-DD HH:ii');
+						this.end_time = formatDate(new Date(ret[max_len][6]), 'YYYY-MM-DD HH:ii');
+						var value_list = [];
+						for (var i = 0; i < ret.length; i++) {
+							value_list.push(ret[i][2]);
+							value_list.push(ret[i][3]);
+						}
+						value_list = value_list.sort(function(a, b) {
+							return a - b
+						});
+						min_value = value_list[0];
+						max_value = value_list[value_list.length - 1];
+						start_value = ret[0][1];
+						var max_diffient = ((max_value - start_value) / start_value * 100).toFixed(2);
+						var min_diffient = ((min_value - start_value) / start_value * 100).toFixed(2);
+						var diffient = ((ret[max_len][4] - start_value) / start_value * 100).toFixed(2);
+						if (diffient > 0) {
+							this.series_data_up[index] = diffient;
+							this.series_data_max[index] = max_diffient;
+							this.series_data_down[index] = "-";
+							this.series_data_min[index] = "-";
+							this.offer_up[symbol] = (diffient / max_diffient * 100).toFixed(2);
+							this.offer_down[symbol] = undefined;
+						} else if (diffient < 0) {
+							this.series_data_down[index] = diffient;
+							this.series_data_min[index] = min_diffient;
+							this.series_data_max[index] = "-";
+							this.series_data_up[index] = "-";
+							this.offer_down[symbol] = Math.abs(diffient / min_diffient * 100).toFixed(2);
+							this.offer_up[symbol] = undefined;
+						} else {
+							this.series_data_down[index] = "-";
+							this.series_data_min[index] = "-";
+							this.series_data_max[index] = "-";
+							this.series_data_up[index] = "-";
+							this.offer_up[symbol] = undefined;
+							this.offer_down[symbol] = undefined;
+						}
+						// this.max_min[symbol] = ((max_value - start_value) / (start_value - min_value))
+						this.max_min[symbol] = ((max_value - start_value) / start_value * 100)
+							.toFixed(2);
+						// this.min_max[symbol] = ((start_value - min_value) / (max_value - start_value))
+						this.min_max[symbol] = ((start_value - min_value) / start_value * 100)
+							.toFixed(2);
+						this.max_max[symbol] = ((max_value - min_value) / start_value * 100).toFixed(2);
+					});
+				},
+				init_chart() {
+					console.log("--- chart init ----");
+					if (this.myChart === "") {
+						this.myChart = echarts.init(document.getElementById('main'));
+					}
+					if (this.myChart2 === "") {
+						this.myChart2 = echarts.init(document.getElementById('main2'));
+					}
+					this.up_name = 0;
+					for (index in this.series_data_up) {
+						if (this.series_data_up[index] !== "-") {
+							this.up_name += 1;
+						}
+					}
+					option = {
+						grid: {
+							top: '3%',
+							left: '5%',
+							right: '4%',
+							bottom: '2%',
+							containLabel: true
+						},
+						xAxis: {
+							max: 'dataMax'
+						},
+						yAxis: {
+							show: false,
+							type: 'category',
+							data: this.symbol_list,
+							inverse: true,
+							animationDuration: 300,
+							animationDurationUpdate: 300,
+							max: Number(this.max_num)
+						},
+						series: [{
+							name: this.up_name,
+							realtimeSort: true,
+							type: 'bar',
+							data: this.series_data_up,
+							stack: '1',
+							z: 10,
+							label: {
+								show: true,
+								valueAnimation: true,
+								formatter: '{b}: {@score}',
+								position: 'left',
+							},
+							itemStyle: {
+								normal: {
+									color: function(value) {
+										symbol = value.name;
+										if (symbol === app.check_symbol) {
+											return "DarkOrange";
+										}
+										if (app.offer_green_list.indexOf(symbol) !== -1) {
+											return "Lime";
+										} else if (symbol == "ETH" || symbol == "BTC") {
+											return "Cyan";
+										} else {
+											return "#5470C6";
+										}
+									}
+								}
+							},
+						}, {
+							type: 'bar',
+							barGap: '-100%',
+							data: this.series_data_max,
+							stack: '2',
+							label: {
+								show: true,
+								valueAnimation: true,
+								formatter: '{@score}: {b}',
+								position: 'right',
+							},
+							itemStyle: {
+								normal: {
+									color: '#ddd'
+								}
+							},
+						}, ],
+						legend: {
+							show: true,
+						},
+						animationDuration: 0,
+						animationDurationUpdate: 300,
+						animationEasing: 'linear',
+						animationEasingUpdate: 'linear'
+					};
+					console.log(option);
+					option && this.myChart.setOption(option);
+					console.log("--- chart init end----");
+					this.down_name = 0;
+					for (index in this.series_data_down) {
+						if (this.series_data_down[index] !== "-") {
+							this.down_name += 1;
+						}
+					}
+					option2 = {
+						grid: {
+							top: '3%',
+							left: '0%',
+							right: '5%',
+							bottom: '2%',
+							containLabel: true
+						},
+						xAxis: {
+							max: 'dataMax'
+						},
+						yAxis: {
+							show: false,
+							type: 'category',
+							data: this.symbol_list,
+							inverse: true,
+							animationDuration: 300,
+							animationDurationUpdate: 300,
+							max: Number(this.max_num),
+							position: 'right',
+						},
+						series: [{
+							name: this.down_name,
+							realtimeSort: true,
+							type: 'bar',
+							z: 10,
+							data: this.series_data_down,
+							stack: '1',
+							label: {
+								show: true,
+								formatter: '{@score}: {b}',
+								position: 'right',
+							},
+							itemStyle: {
+								normal: {
+									color: function(value) {
+										symbol = value.name;
+										if (symbol === app.check_symbol) {
+											return "DarkOrange";
+										}
+										if (app.offer_red_list.indexOf(symbol) !== -1) {
+											return "red";
+										} else if (symbol == "ETH" || symbol == "BTC") {
+											return "Cyan";
+										} else {
+											return "#5470C6";
+										}
+									}
+								}
+							},
+						}, {
+							type: 'bar',
+							barGap: '-100%',
+							data: this.series_data_min,
+							stack: '2',
+							label: {
+								show: true,
+								formatter: '{b}: {@score}',
+								position: 'left',
+							},
+							z: 0,
+							itemStyle: {
+								normal: {
+									color: '#ddd'
+								}
+							},
+						}, ],
+						legend: {
+							show: true,
+						},
+						animationDuration: 0,
+						animationDurationUpdate: 300,
+						animationEasing: 'linear',
+						animationEasingUpdate: 'linear'
+					};
+					option2 && this.myChart2.setOption(option2);
+
+				},
+			}
+		});
+	</script>
+	<style scoped>
+		body {
+			margin: 0;
+		}
+
+		.content {
+			margin: auto;
+			width: 100%;
+			margin-top: 2rem;
+		}
+
+		.header {
+			position: relative;
+			box-sizing: border-box;
+			width: 100%;
+			height: 70px;
+			font-size: 22px;
+			color: #fff;
+			background-color: #173150;
+		}
+
+		.collapse-btn {
+			float: left;
+			padding: 0 21px;
+			cursor: pointer;
+			line-height: 70px;
+		}
+
+		.header .logo {
+			float: left;
+			width: 250px;
+			line-height: 70px;
+			margin-left: 40px;
+		}
+
+		.header .date {
+			float: right;
+			width: 250px;
+			line-height: 70px;
+			margin-left: 40px;
+		}
+
+		.header-right {
+			float: right;
+			padding-right: 10px;
+		}
+
+		.header-user-con {
+			display: flex;
+			height: 70px;
+			align-items: center;
+		}
+
+		.user-name {
+			margin-left: 10px;
+		}
+
+		.user-avator {
+			margin-left: 10px;
+		}
+
+		.el-dropdown-link {
+			color: #fff;
+			cursor: pointer;
+			text-decoration: none;
+		}
+
+		.box-card {
+			width: 480px;
+			margin-left: 3.125rem;
+		}
+
+		.table_color_red {
+			color: red;
+			font-weight: 700;
+		}
+
+		.table_color_green {
+			color: Lime;
+			font-weight: 700;
+		}
+
+		.table_color_orange {
+			color: DarkOrange;
+			font-weight: 700;
+		}
+
+		.table_color_BTC {
+			color: Cyan;
+			font-weight: 700;
+		}
+	</style>
+</html>
